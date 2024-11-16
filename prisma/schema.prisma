@@ -1,0 +1,67 @@
+generator client {
+    provider      = "prisma-client-js"
+    binaryTargets = ["native", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+model User {
+    userId    Int      @id @default(autoincrement())
+    username  String   @unique
+    email     String   @unique
+    password  String   @unique
+    avatar    String?
+    createdAt DateTime @default(now())
+
+    files  File[]
+    shares FileShare[] @relation("UserShares")
+}
+
+model File {
+    fileId     Int      @id @default(autoincrement())
+    userId     Int // Foreign key to reference User
+    user       User     @relation(fields: [userId], references: [userId])
+    filename   String // Original file name
+    fileType   String // MIME type (e.g., 'application/pdf', 'image/png')
+    filePath   String // Path or URL where the file is stored
+    size       Int // File size in bytes
+    shared     Boolean  @default(false) // Indicates if the file is shared
+    uploadedAt DateTime @default(now())
+    version    Int      @default(1) // Tracks file version number
+    tags       String[] // Array of tags for categorization
+
+    // Relations
+    shares  FileShare[]   @relation("FileShares")
+    history FileHistory[]
+
+    @@index([userId])
+}
+
+model FileHistory {
+    historyId Int      @id @default(autoincrement())
+    fileId    Int
+    version   Int // The version number of the file
+    filename  String // File name for this version
+    filePath  String // Path to the file for this version
+    updatedAt DateTime @default(now()) // When this version was created
+    file      File     @relation(fields: [fileId], references: [fileId])
+}
+
+model FileShare {
+    shareId      Int              @id @default(autoincrement())
+    fileId       Int
+    file         File             @relation("FileShares", fields: [fileId], references: [fileId])
+    sharedById   Int
+    sharedBy     User             @relation("UserShares", fields: [sharedById], references: [userId])
+    sharedWithId Int // Represents the ID of the user with whom the file is shared
+    accessLevel  ShareAccessLevel // Access level for shared files
+    sharedAt     DateTime         @default(now())
+}
+
+enum ShareAccessLevel {
+    READ
+    WRITE
+}
